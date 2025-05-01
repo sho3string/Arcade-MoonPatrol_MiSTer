@@ -70,11 +70,10 @@ reg				dim_video;				 				// Dim video requested (active-high)
 `endif
 
 assign pause_cpu = (pause_request | pause_toggle  | (OSD_STATUS & options[pause_in_osd])) & !reset;
-
+reg user_button_last;
 always @(posedge clk_sys) begin
 
 	// Track user pause button down
-	reg user_button_last;
 	user_button_last <= user_button;
 	if(!user_button_last & user_button) pause_toggle <= ~pause_toggle;
 

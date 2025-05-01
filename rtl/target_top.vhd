@@ -17,8 +17,10 @@ entity target_top is
 		clock_30   : in std_logic;
 		clock_v    : in std_logic;
 		clock_3p58 : in std_logic;
+		
 		reset      : in std_logic;
 
+        dn_clk     : in  std_logic;
 		dn_addr    : in  std_logic_vector(15 downto 0);
 		dn_data    : in  std_logic_vector(7 downto 0);
 		dn_wr      : in  std_logic;
@@ -192,6 +194,7 @@ begin
       
 		sound_data_o => sound_data,
 
+        dn_clk       => dn_clk,
 		dn_addr      => dn_addr,
 		dn_data      => dn_data,
 		dn_wr        => dn_wr,
@@ -219,6 +222,7 @@ begin
 		reset        => reset,
 	 
 		clock_30     => clock_30,
+		dn_clk       => dn_clk,
 		dn_addr      => dn_addr,
 		dn_data      => dn_data,
 		dn_wr        => dn_wr,

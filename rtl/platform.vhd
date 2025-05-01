@@ -34,8 +34,8 @@ entity platform is
     -- FLASH/SRAM
     flash_i         : in from_FLASH_t;
     flash_o         : out to_FLASH_t;
-		sram_i					: in from_SRAM_t;
-		sram_o					: out to_SRAM_t;
+	sram_i		    : in from_SRAM_t;
+	sram_o			: out to_SRAM_t;
     sdram_i         : in from_SDRAM_t;
     sdram_o         : out to_SDRAM_t;
     
@@ -50,7 +50,7 @@ entity platform is
     sprite_reg_o    : out to_SPRITE_REG_t;
     sprite_i        : in from_SPRITE_CTL_t;
     sprite_o        : out to_SPRITE_CTL_t;
-		spr0_hit				: in std_logic;
+	spr0_hit		: in std_logic;
 
     -- various graphics information
     graphics_i      : in from_GRAPHICS_t;
@@ -72,11 +72,12 @@ entity platform is
     ser_i           : in from_SERIAL_t;
     ser_o           : out to_SERIAL_t;
 	 
-	 sound_data_o    : out std_logic_vector(7 downto 0);
+	sound_data_o    : out std_logic_vector(7 downto 0);
 
-	 dn_addr         : in  std_logic_vector(15 downto 0);
-	 dn_data         : in  std_logic_vector(7 downto 0);
-	 dn_wr           : in  std_logic;
+    dn_clk          : in  std_logic;
+	dn_addr         : in  std_logic_vector(15 downto 0);
+	dn_data         : in  std_logic_vector(7 downto 0);
+	dn_wr           : in  std_logic;
 
     -- custom i/o
     project_i       : in from_PROJECT_IO_t;
@@ -381,18 +382,23 @@ begin
 			alias vblank_prev : std_logic is vblank_r(vblank_r'left);
 			alias vblank_um   : std_logic is vblank_r(vblank_r'left-1);
       -- 1us duty for VBLANK_INT
-      variable count    : integer range 0 to CLK0_FREQ_MHz * 100;
+      --variable count    : integer range 0 to CLK0_FREQ_MHz * 100;
+      constant CLK0_FREQ_MHz : integer := 100;
+      constant COUNT_MAX     : integer := CLK0_FREQ_MHz * 100;
+      variable count : integer range 0 to COUNT_MAX;
 		begin
 			if rst_sys = '1' then
 				vblank_int <= '0';
 				vblank_r := (others => '0');
-        count := count'high;
+        --count := count'high;
+        count := COUNT_MAX;
 			elsif rising_edge(clk_sys) then
         -- rising edge vblank only
         if vblank_prev = '0' and vblank_um = '1' then
           count := 0;
         end if;
-        if count /= count'high then
+        --if count /= count'high then
+        if count /= COUNT_MAX then
           vblank_int <= '1';
           count := count + 1;
         else
@@ -428,10 +434,17 @@ begin
 	romb2_cs <= '1' when dn_addr(15 downto 12) = "1001" else '0';
 	romb3_cs <= '1' when dn_addr(15 downto 12) = "1010" else '0';
 
-	rom_inst : work.dpram generic map (14,8)
+	--rom_inst : work.dpram generic map (14,8)
+	rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 14,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romp_cs,
 		address_a => dn_addr(13 downto 0),
 		data_a    => dn_data,
@@ -441,10 +454,17 @@ begin
 		q_b       => rom_d_o
 	);
 
-	char1_rom_inst : work.dpram generic map (12,8)
+	--char1_rom_inst : work.dpram generic map (12,8)
+	char1_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romc1_cs,
 		address_a => dn_addr(11 downto 0),
 		data_a    => dn_data,
@@ -454,10 +474,17 @@ begin
 		q_b       => tilemap_o(1).tile_d(15 downto 8)
 	);
 
-	char2_rom_inst : work.dpram generic map (12,8)
+	--char2_rom_inst : work.dpram generic map (12,8)
+	char2_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romc2_cs,
 		address_a => dn_addr(11 downto 0),
 		data_a    => dn_data,
@@ -468,12 +495,18 @@ begin
 	);
 	
 	spr_addr <= dn_addr(11 downto 0) when rst_sys = '1' else (sprite_i.a(11 downto 5) & '0' & sprite_i.a(3 downto 0));
-	spr_clk  <= clk_sys when rst_sys = '1' else clk_video;
+	spr_clk  <= dn_clk when rst_sys = '1' else clk_video;
 
-	sprite1_rom_inst : work.dpram generic map (12,8)
+	--sprite1_rom_inst : work.dpram generic map (12,8)
+	sprite1_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a	 => spr_clk,
+		clock_a	  => spr_clk,
 		address_a => spr_addr,
 		wren_a    => dn_wr and roms1_cs,
 		data_a    => dn_data,
@@ -486,10 +519,16 @@ begin
 		q_b                     => sprite_o.d(23 downto 16)
 	);
 
-	sprite2_rom_inst : work.dpram generic map (12,8)
+	--sprite2_rom_inst : work.dpram generic map (12,8)
+	sprite2_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a	 => spr_clk,
+		clock_a	  => spr_clk,
 		address_a => spr_addr,
 		wren_a    => dn_wr and roms2_cs,
 		data_a    => dn_data,
@@ -504,10 +543,17 @@ begin
 
    sprite_o.d(sprite_o.d'left downto 32) <= (others => '0');
 
-	bg1_rom_inst : work.dpram generic map (12,8)
+	--bg1_rom_inst : work.dpram generic map (12,8)
+	bg1_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romb1_cs,
 		address_a => dn_addr(11 downto 0),
 		data_a    => dn_data,
@@ -517,10 +563,17 @@ begin
 		q_b       => bitmap_o(1).d(7 downto 0)  
 	);
 
-	bg2_rom_inst : work.dpram generic map (12,8)
+	--bg2_rom_inst : work.dpram generic map (12,8)
+	bg2_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romb2_cs,
 		address_a => dn_addr(11 downto 0),
 		data_a    => dn_data,
@@ -530,10 +583,17 @@ begin
 		q_b       => bitmap_o(2).d(7 downto 0)  
 	);
 
-	bg3_rom_inst : work.dpram generic map (12,8)
+	--bg3_rom_inst : work.dpram generic map (12,8)
+	bg3_rom_inst : entity work.dualport_2clk_ram
+	generic map
+	(
+        FALLING_A    => TRUE,
+        ADDR_WIDTH   => 12,
+        DATA_WIDTH   => 8
+    )
 	port map
 	(
-		clock_a   => clk_sys,
+		clock_a   => dn_clk,
 		wren_a    => dn_wr and romb3_cs,
 		address_a => dn_addr(11 downto 0),
 		data_a    => dn_data,
@@ -548,60 +608,74 @@ begin
    bitmap_o(3).d(15 downto 8) <= (others => '0');
 
 	-- wren_a *MUST* be GND for CYCLONEII_SAFE_WRITE=VERIFIED_SAFE
-	vram_inst : entity work.dpram
-    generic map(10)
-		port map
-		(
-			clock_b			=> clk_sys,
-			address_b		=> cpu_a(9 downto 0),
-			wren_b			=> vram_wr,
-			data_b			=> cpu_d_o,
-			q_b					=> vram_d_o,
+	--vram_inst : entity work.dpram generic map(10)
+	vram_inst : entity work.dualport_2clk_ram
+	generic map
+    (
+        ADDR_WIDTH   => 10
+    )
+    port map
+    (
+        clock_b			=> clk_sys,
+        address_b		=> cpu_a(9 downto 0),
+        wren_b			=> vram_wr,
+        data_b			=> cpu_d_o,
+        q_b			    => vram_d_o,
 
-			clock_a			=> clk_video,
-			address_a		=> tilemap_i(1).map_a(9 downto 0),
-			wren_a			=> '0',
-			data_a			=> (others => 'X'),
-			q_a					=> tilemap_o(1).map_d(7 downto 0)
-		);
+        clock_a			=> clk_video,
+        address_a		=> tilemap_i(1).map_a(9 downto 0),
+        wren_a			=> '0',
+        data_a			=> (others => 'X'),
+        q_a		        => tilemap_o(1).map_d(7 downto 0)
+    );
+    
   tilemap_o(1).map_d(15 downto 8) <= (others => '0');
 
 	-- wren_a *MUST* be GND for CYCLONEII_SAFE_WRITE=VERIFIED_SAFE
-	cram_inst : entity work.dpram
-    generic map(10)
-		port map
-		(
-			clock_b			=> clk_sys,
-			address_b		=> cpu_a(9 downto 0),
-			wren_b			=> cram_wr,
-			data_b			=> cpu_d_o,
-			q_b					=> cram_d_o,
+	--cram_inst : entity work.dpram generic map(10)
+	cram_inst : entity work.dualport_2clk_ram
+	generic map
+    (
+        ADDR_WIDTH   => 10
+    )
+    port map
+    (
+        clock_b			=> clk_sys,
+        address_b		=> cpu_a(9 downto 0),
+        wren_b			=> cram_wr,
+        data_b			=> cpu_d_o,
+        q_b				=> cram_d_o,
 
-			clock_a			=> clk_video,
-			address_a		=> tilemap_i(1).attr_a(9 downto 0),
-			wren_a			=> '0',
-			data_a			=> (others => 'X'),
-			q_a					=> tilemap_o(1).attr_d(7 downto 0)
-		);
+        clock_a			=> clk_video,
+        address_a		=> tilemap_i(1).attr_a(9 downto 0),
+        wren_a			=> '0',
+        data_a			=> (others => 'X'),
+        q_a				=> tilemap_o(1).attr_d(7 downto 0)
+    );
   tilemap_o(1).attr_d(15 downto 8) <= (others => '0');
   
   GEN_WRAM : if M52_USE_INTERNAL_WRAM generate
   
-    wram_inst : entity work.dpram  generic map(11)
-      port map
-      (
+    --wram_inst : entity work.dpram  generic map(11)
+    wram_inst : entity work.dualport_2clk_ram
+    generic map
+    (
+        ADDR_WIDTH   => 11
+    )
+    port map
+    (
         clock_a			=> clk_sys,
-        address_a			=> cpu_a(10 downto 0),
-        data_a				=> cpu_d_o,
-        wren_a				=> wram_wr,
-        q_a					=> wram_d_o,
-
+        address_a		=> cpu_a(10 downto 0),
+        data_a			=> cpu_d_o,
+        wren_a			=> wram_wr,
+        q_a				=> wram_d_o,
+        
         clock_b			=> clk_sys,
-        address_b			=> hs_address,
-        data_b				=> hs_data_in,
-        wren_b				=> hs_write,
-        q_b					=> hs_data_out
-      );
+        address_b		=> hs_address,
+        data_b			=> hs_data_in,
+        wren_b			=> hs_write,
+        q_b				=> hs_data_out
+    );
 
     sram_o <= NULL_TO_SRAM;
     

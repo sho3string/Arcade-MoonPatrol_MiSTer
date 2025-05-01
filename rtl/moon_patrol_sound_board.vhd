@@ -53,6 +53,7 @@ port(
  reset        : in std_logic;
  
  clock_30     : in  std_logic;
+ dn_clk       : in  std_logic;
  dn_addr      : in  std_logic_vector(15 downto 0);
  dn_data      : in  std_logic_vector(7 downto 0);
  dn_wr        : in  std_logic;
@@ -363,10 +364,17 @@ port map(
 roms_cs <= '1' when dn_addr(15 downto 12) = "1011" else '0';
 
 -- cpu program rom
-cpu_prog_rom : work.dpram generic map (12,8)
+--cpu_prog_rom : work.dpram generic map (12,8)
+cpu_prog_rom : entity work.dualport_2clk_ram
+generic map 
+(
+    FALLING_A    => TRUE,
+    ADDR_WIDTH   => 12,
+    DATA_WIDTH   => 8
+)
 port map
 (
-	clock_a   => clock_30,
+	clock_a   => dn_clk,
 	wren_a    => dn_wr and roms_cs,
 	address_a => dn_addr(11 downto 0),
 	data_a    => dn_data,
@@ -377,7 +385,13 @@ port map
 );
 
 -- cpu wram 
-cpu_ram : work.dpram generic map (7,8)
+--cpu_ram : work.dpram generic map (7,8)
+cpu_ram : entity work.dualport_2clk_ram
+generic map 
+(
+    ADDR_WIDTH   => 7,
+    DATA_WIDTH   => 8
+)
 port map
 (
 	clock_a   => clock_div(0),  -- 3p58/2,

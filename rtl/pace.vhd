@@ -51,6 +51,7 @@ entity PACE is
 
 	 sound_data_o    : out std_logic_vector(7 downto 0);
 
+     dn_clk          : in  std_logic;
 	 dn_addr         : in  std_logic_vector(15 downto 0);
 	 dn_data         : in  std_logic_vector(7 downto 0);
 	 dn_wr           : in  std_logic;
@@ -183,6 +184,7 @@ port map
 
 	sound_data_o    => sound_data_o,
 
+    dn_clk          => dn_clk,
 	dn_addr         => dn_addr,
 	dn_data         => dn_data,
 	dn_wr           => dn_wr,
